@@ -10,227 +10,301 @@
 
 <body>
   <canvas></canvas>
-
-  <img id="sprite" src="./sprites/sprite.png" alt="sprite">
-  <img id="bricks" src="./sprites/bricks.png" alt="Bricks">
+  <div class="opciones">
+    <button id="restart" class="restart">Restart</button>
+  </div>
 </body>
 <script>
-  const canvas = document.querySelector('canvas');
-  // contexto en el que se trabaja
-  const ctx = canvas.getContext('2d'); // webgl, bitmaprenderer, 3d
-  const $sprite = document.querySelector('#sprite');
-  const $bricks = document.querySelector('#bricks');
-  // Seteamos el tamaño del canvas
-  canvas.width = 448;
-  canvas.height = 400;
+  class Arkanoid {
+    // constructor de la clase
+    constructor(
+      canvas, // id del canvas donde se creará el juego.
+      restart // id del botón para reiniciar el juego.
+    ) {
+      this.points = 0; // Puntos del juego actual
+      this.hiscore = this.verifyHiscore(); // Puntos máximo historicos
+      this.canvas = document.querySelector('canvas'); // obtenemos el objeto del canvas
+      this.initCanvas();
+      this.ctx = this.canvas.getContext('2d'); // obtenemos el contexto del canvas
+      this.restart = document.querySelector('#restart'); // obtenemos el objeto del botón
+      // generamos las imagenes
+      this.sprite = null;
+      this.bricks = null;
+      this.generateSprites();
+      // Variables del juego
+      this.gameOver = false;
+      // Variables de la pelota
+      this.ballRadius = 3; // tamaño del ball
+      this.x = this.canvas.width / 2; // posicion del ball
+      this.y = this.canvas.height - 30; // posicion del ball
+      this.dx = 2; // velocidad del ball
+      this.dy = -2; // velocidad del ball
+      // Variables del paddle
+      this.paddleWidth = 48; // ancho del paddle
+      this.paddleHeight = 10; // alto del paddle
+      this.paddleX = (this.canvas.width - this.paddleWidth) / 2; // posicion del paddle
+      this.paddleY = (this.canvas.height - this.paddleHeight) - 10; // posicion del paddle
+      this.rightPressed = false; // si se presiono la tecla derecha
+      this.leftPressed = false; // si se presiono la tecla izquierda
+      this.PADDLE_SPEED = 4; // velocidad del paddle
+      // Variables de los ladrillos
+      this.brickRowCount = 6; // cantidad de filas de ladrillos
+      this.brickColumnCount = 13; // cantidad de columnas de ladrillos
+      this.brickWidth = 32; // ancho de cada ladrillo
+      this.brickHeight = 16; // alto de cada ladrillo
+      this.brickPadding = 0; // padding entre cada ladrillo
+      this.brickOffsetTop = 80; // desplazamiento de la primera fila de ladrillos
+      this.brickOffsetLeft = 16; // desplazamiento de la primera columna de ladrillos
+      this.BRICK_STATUS = {
+        ACTIVE: 1,
+        DESTROYED: 0
+      }
+      this.bricksArray = [];
+      // Inicializamos
+    }
+    // inicializamos el juego
+    init() {
+      // this.reinicioJuego(); // dibujamos el juego
+      this.restart.addEventListener('click', () => {
+        this.reinicioJuego();
+      });
+    }
 
-  /*Variables del juego*/
-  // Variables de la pelota
-  const ballRadius = 3; // tamaño del ball
-  let x = canvas.width / 2; // posicion del ball
-  let y = canvas.height - 30; // posicion del ball
-  let dx = 2; // velocidad del ball
-  let dy = -2; // velocidad del ball
-  // Variables del paddle
-  const paddleWidth = 50; // ancho del paddle
-  const paddleHeight = 10; // alto del paddle
-  let paddleX = (canvas.width - paddleWidth) / 2; // posicion del paddle
-  let paddleY = canvas.height - paddleHeight - 10; // posicion del paddle
-  let rightPressed = false; // si se presiono la tecla derecha
-  let leftPressed = false; // si se presiono la tecla izquierda
-  const PADDLE_SPEED = 5; // velocidad del paddle
-  // Variables de los ladrillos
-  const brickRowCount = 6; // cantidad de filas de ladrillos
-  const brickColumnCount = 13; // cantidad de columnas de ladrillos
-  const brickWidth = 32; // ancho de cada ladrillo
-  const brickHeight = 16; // alto de cada ladrillo
-  const brickPadding = 0; // padding entre cada ladrillo
-  const brickOffsetTop = 80; // desplazamiento de la primera fila de ladrillos
-  const brickOffsetLeft = 16; // desplazamiento de la primera columna de ladrillos
-  const BRICK_STATUS = {
-    ACTIVE: 1,
-    DESTROYED: 0
-  }
-  const bricks = []; // array de objetos ladrillos
+    // inicializamos canvas
+    initCanvas() {
+      this.canvas.width = 448;
+      this.canvas.height = 400;
+    }
+    // Verificar el punto máximo
+    verifyHiscore() {
+      let hiscore = localStorage.getItem('hiscore');
+      if (hiscore === null) {
+        hiscore = 0;
+        localStorage.setItem('hiscore', hiscore);
+      }
+      return hiscore;
+    }
+    // Generamos imagenes de sprites
+    generateSprites() {
+      this.sprite = document.createElement('img');
+      this.sprite.src = './sprites/sprite.png';
+      this.sprite.alt = 'sprite';
+      this.sprite.hidden = true;
+      this.sprite.id = 'sprite';
 
-  // Funciones del juego
-  const drawBall = () => {
+      this.bricks = document.createElement('img');
+      this.bricks.src = './sprites/bricks.png';
+      this.bricks.alt = 'Bricks';
+      this.bricks.hidden = true;
+      this.bricks.id = 'bricks';
+    }
     // Dibujamos el ball
-    ctx.beginPath();
-    ctx.arc(x, y, ballRadius, 0, Math.PI * 2); // posición x, posicón y, radio, comienzo, fin
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    ctx.closePath();
-  };
-  // Dibujamos el paddle
-  const drawPaddle = () => {
-    // ctx.fillStyle = '#09f';
-    // ctx.fillRect(paddleX, paddleY, paddleWidth, paddleHeight); // posición x, posicón y, ancho, alto
-    // Dibujar una imagen
-    ctx.drawImage(
-      $sprite, // imagen
-      29, // clipx: coordenadas de recorte
-      170, // clipy: coordenadas de recorte
-      paddleWidth, // el ancho del recorte
-      paddleHeight, // el alto del recorte
-      paddleX, // la posición x del dibujo
-      paddleY, // la posición y del dibujo
-      paddleWidth, // ancho del dibujo
-      paddleHeight  // alto del dibujo
-    );
-  };
-  // Dibujamos los ladrillos
-  const drawBricks = () => {
-    for (let i = 0; i < bricks.length; i++) {
-      for (let j = 0; j < bricks[i].length; j++) {
-        const curentBrick = bricks[i][j];
-        // Si el ladrillo esta destruido
-        if (curentBrick.status === BRICK_STATUS.DESTROYED) {
-          continue;
+    drawBall() {
+      // Dibujamos el ball
+      this.ctx.beginPath();
+      this.ctx.arc(this.x, this.y, this.ballRadius, 0, Math.PI * 2); // posición x, posicón y, radio, comienzo, fin
+      this.ctx.fillStyle = '#fff';
+      this.ctx.fill();
+      this.ctx.closePath();
+    }
+    // Dibujamos el paddle
+    drawPaddle() {
+      // Dibujar una imagen
+      this.ctx.drawImage(
+        this.sprite, // imagen
+        29, // clipx: coordenadas de recorte
+        170, // clipy: coordenadas de recorte
+        this.paddleWidth, // el ancho del recorte
+        this.paddleHeight, // el alto del recorte
+        this.paddleX, // la posición x del dibujo
+        this.paddleY, // la posición y del dibujo
+        this.paddleWidth, // ancho del dibujo
+        this.paddleHeight  // alto del dibujo
+      );
+    };
+    drawBricks() {
+      for (let i = 0; i < this.bricksArray.length; i++) {
+        for (let j = 0; j < this.bricksArray[i].length; j++) {
+          const curentBrick = this.bricksArray[i][j];
+          // Si el ladrillo esta destruido
+          if (curentBrick.status === this.BRICK_STATUS.DESTROYED) {
+            continue;
+          }
+
+          const clipx = curentBrick.color * 32;
+          this.ctx.drawImage(
+            this.bricks, // imagen
+            clipx, // clipx: coordenadas de recorte
+            0, // clipy: coordenadas de recorte
+            this.brickWidth, // el ancho del recorte
+            this.brickHeight, // el alto del recorte
+            curentBrick.x, // la posición x del dibujo
+            curentBrick.y, // la posición y del dibujo
+            this.brickWidth, // ancho del dibujo
+            this.brickHeight  // alto del dibujo
+          );
         }
-
-        const clipx = curentBrick.color * 32;
-        ctx.drawImage(
-          $bricks, // imagen
-          clipx, // clipx: coordenadas de recorte
-          0, // clipy: coordenadas de recorte
-          brickWidth, // el ancho del recorte
-          brickHeight, // el alto del recorte
-          curentBrick.x, // la posición x del dibujo
-          curentBrick.y, // la posición y del dibujo
-          brickWidth, // ancho del dibujo
-          brickHeight  // alto del dibujo
-        );
-
-      }
-    }
-  };
-  // Detectar colisiones de bolas con ladrillos
-  const collisionDetection = () => {
-    for (let i = 0; i < bricks.length; i++) {
-      for (let j = 0; j < bricks[i].length; j++) {
-        const curentBrick = bricks[i][j];
-        // Si el ladrillo esta destruido
-        if (curentBrick.status === BRICK_STATUS.DESTROYED) {
-          continue;
-        }
-        // Si la pelota esta dentro del ladrillo
-        const isBallSameXAsBrick = x > curentBrick.x && x < curentBrick.x + brickWidth;
-        const isBallSameYAsBrick = y > curentBrick.y && y < curentBrick.y + brickHeight;
-        if (
-          isBallSameXAsBrick && isBallSameYAsBrick
-        ) {
-          dy = -dy;
-          curentBrick.status = BRICK_STATUS.DESTROYED;
-
-        }
-      }
-    }
-  };
-
-  // Movimiento del ball
-  const ballMovement = () => {
-    // Rebotar las pelotas en los laterales
-    if (
-      (x + dx) > canvas.width - ballRadius // la pared derecha
-      || (x + dx) < ballRadius // la pared derecha
-    ) {
-      dx = -dx;
-    }
-    // Rebotar las pelotas arriba
-    if (
-      (y + dy) < ballRadius // la pared arriba
-    ) {
-      dy = -dy;
-    }
-    // Rebotar la pelota en el paddle
-    const isBallSameXAsPaddle = x > paddleX && x < paddleX + paddleWidth;
-    const isBallSameYAsPaddle = y + dy > paddleY;
-    if (
-      isBallSameXAsPaddle // la pared abajo
-      && isBallSameYAsPaddle
-    ) {
-      dy = -dy;
-    } else if (y + dy > canvas.height - ballRadius) {
-      // Game over
-      console.log('Game over');
-      document.location.reload();
-    }
-    x += dx;
-    y += dy;
-  };
-  // Movimiento del paddle
-  const paddleMovement = () => {
-    if (rightPressed && paddleX < canvas.width - paddleWidth) {
-      paddleX += PADDLE_SPEED;
-    } else if (leftPressed && paddleX > 0) {
-      paddleX -= PADDLE_SPEED;
-    }
-  };
-
-  // Limpiamos el canvas desde posicion (0,0) hasta  final de canvas
-  const cleanCanvas = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  // inicializar eventos
-  const initEvents = () => {
-    const keyDownHandler = (e) => {
-      const { key } = e;
-      if (key === 'Right' || key === 'ArrowRight') {
-        rightPressed = true;
-      } else if (key === 'Left' || key === 'ArrowLeft') {
-        leftPressed = true;
       }
     };
-    const keyUpHandler = (e) => {
-      const { key } = e;
-      if (key === 'Right' || key === 'ArrowRight') {
-        rightPressed = false;
-      } else if (key === 'Left' || key === 'ArrowLeft') {
-        leftPressed = false;
+    // Detectar colisiones de bolas con ladrillos
+    collisionDetection() {
+      for (let i = 0; i < this.bricksArray.length; i++) {
+        for (let j = 0; j < this.bricksArray[i].length; j++) {
+          const curentBrick = this.bricksArray[i][j];
+          // Si el ladrillo esta destruido
+          if (curentBrick.status === this.BRICK_STATUS.DESTROYED) {
+            continue;
+          }
+          // Si la pelota esta dentro del ladrillo
+          const isBallSameXAsBrick = (this.x + this.ballRadius) > curentBrick.x && (this.x - this.ballRadius) < curentBrick.x + this.brickWidth;
+          const isBallSameYAsBrick = (this.y + this.ballRadius) > curentBrick.y && (this.y - this.ballRadius) < curentBrick.y + this.brickHeight;
+          if (
+            isBallSameXAsBrick && isBallSameYAsBrick
+          ) {
+            this.dy = -this.dy;
+            curentBrick.status = this.BRICK_STATUS.DESTROYED;
+            this.points += 100;
+          }
+        }
       }
     };
-    document.addEventListener('keydown', keyDownHandler);
-    document.addEventListener('keyup', keyUpHandler);
-  };
-
-  // Se ejecuta en cada frame
-  const draw = () => {
-    // Limpiamos el canvas antes de volver a dibujar
-    cleanCanvas();
-    // Dibujamos los elementos
-    drawBall();
-    drawPaddle();
-    drawBricks();
-    // colisiones y movimientos
-    collisionDetection();
-    ballMovement();
-    paddleMovement();
-
-    window.requestAnimationFrame(draw);
-  };
-  // inicializamos
-  draw();
-  initEvents();
-  // Ladrillos
-  for (let i = 0; i < brickColumnCount; i++) {
-    bricks.push([]); // agregar una nueva fila
-    for (let j = 0; j < brickRowCount; j++) {
-      // Calculamos la posición del ladrillo en el canvas
-      const brickx = i * (brickWidth + brickPadding) + brickOffsetLeft;
-      const bricky = j * (brickHeight + brickPadding) + brickOffsetTop;
-      // Asignamos color
-      const randomColor = Math.floor(Math.random() * 8);
-      // Agregamos el ladrillo a la lista
-      bricks[i][j] = {
-        x: brickx,
-        y: bricky,
-        status: BRICK_STATUS.ACTIVE,
-        color: randomColor
+    // Movimiento del ball
+    ballMovement() {
+      // Rebotar las pelotas en los laterales
+      if (
+        (this.x + this.dx) > this.canvas.width - this.ballRadius // la pared derecha
+        || (this.x + this.dx) < this.ballRadius // la pared derecha
+      ) {
+        this.dx = -this.dx;
+      }
+      // Rebotar las pelotas arriba
+      if (
+        (this.y + this.dy) < this.ballRadius // la pared arriba
+      ) {
+        this.dy = -this.dy;
+      }
+      // Rebotar la pelota en el paddle
+      const isBallSameXAsPaddle = this.x > this.paddleX && this.x < this.paddleX + this.paddleWidth;
+      const isBallSameYAsPaddle = this.y + this.dy > this.paddleY && this.y + this.dy < this.paddleY + this.paddleHeight;
+      if (
+        isBallSameXAsPaddle // la pared abajo
+        && isBallSameYAsPaddle
+      ) {
+        this.dy = -this.dy;
+      } else if (this.y + this.dy > this.canvas.height - this.ballRadius) {
+        // Game over
+        this.gameOverHandler();
+      }
+      this.x += this.dx;
+      this.y += this.dy;
+    };
+    // Movimiento del paddle
+    paddleMovement() {
+      if (this.rightPressed && this.paddleX < this.canvas.width - this.paddleWidth) {
+        this.paddleX += this.PADDLE_SPEED;
+      } else if (this.leftPressed && this.paddleX > 0) {
+        this.paddleX -= this.PADDLE_SPEED;
+      }
+    };
+    // Escuchamos el movimiento del paddle
+    initEvents() {
+      const keyDownHandler = (e) => {
+        const { key } = e;
+        if (key === 'Right' || key === 'ArrowRight') {
+          this.rightPressed = true;
+        } else if (key === 'Left' || key === 'ArrowLeft') {
+          this.leftPressed = true;
+        }
       };
+      const keyUpHandler = (e) => {
+        const { key } = e;
+        if (key === 'Right' || key === 'ArrowRight') {
+          this.rightPressed = false;
+        } else if (key === 'Left' || key === 'ArrowLeft') {
+          this.leftPressed = false;
+        }
+      };
+      document.addEventListener('keydown', keyDownHandler);
+      document.addEventListener('keyup', keyUpHandler);
+    };
+    // Limpiamos el canvas desde posicion (0,0) hasta  final de canvas
+    cleanCanvas() {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    };
+    getPoints() {
+      this.ctx.font = "Bold 15px Arial";
+      this.ctx.fillStyle = "white";
+      this.ctx.fillText(`Score: ${this.points}`, 10, 15);
+      this.ctx.fillText(`HiScore: ${this.hiscore}`, 200, 15);
+    };
+    // Se ejecuta en cada frame
+    draw() {
+      // Limpiamos el canvas antes de volver a dibujar
+      this.cleanCanvas();
+      // Dibujamos los elementos
+      this.drawBall();
+      this.drawPaddle();
+      this.drawBricks();
+      // colisiones y movimientos
+      this.collisionDetection();
+      this.ballMovement();
+      this.paddleMovement();
+      // Puntajes
+      this.getPoints();
+      if (!this.gameOver) {
+        window.requestAnimationFrame(() => this.draw());
+      }
+    };
+
+    gameOverHandler() {
+      if (this.hiscore < this.points) {
+        this.hiscore = this.points;
+        localStorage.setItem('hiscore', this.hiscore);
+        this.ctx.font = "Bold 30px Arial";
+        this.ctx.fillStyle = "green";
+        this.ctx.fillText("NEW HISCORE: " + this.hiscore, 70, this.canvas.height / 2 + 50);
+      }
+      this.gameOver = true;
+      this.ctx.font = "Bold 50px Arial";
+      this.ctx.fillStyle = "white";
+      this.ctx.fillText("Game Over", 80, this.canvas.height / 2);
+    }
+
+    // restart the game
+    reinicioJuego() {
+      this.points = 0;
+      this.x = this.canvas.width / 2; // posicion del ball
+      this.y = this.canvas.height - 30; // posicion del ball      
+      this.dx = 2; // velocidad del ball
+      this.dy = -2; // velocidad del ball
+      this.paddleX = (this.canvas.width - this.paddleWidth) / 2; // posicion del paddle
+      this.paddleY = this.canvas.height - this.paddleHeight - 10; // posicion del paddle
+      // inicializamos
+      this.initEvents();
+      // Ladrillos
+      for (let i = 0; i < this.brickColumnCount; i++) {
+        this.bricksArray.push([]); // agregar una nueva fila
+        for (let j = 0; j < this.brickRowCount; j++) {
+          // Calculamos la posición del ladrillo en el canvas
+          const brickx = i * (this.brickWidth + this.brickPadding) + this.brickOffsetLeft;
+          const bricky = j * (this.brickHeight + this.brickPadding) + this.brickOffsetTop;
+          // Asignamos color
+          const randomColor = Math.floor(Math.random() * 8);
+          // Agregamos el ladrillo a la lista
+          this.bricksArray[i][j] = {
+            x: brickx,
+            y: bricky,
+            status: this.BRICK_STATUS.ACTIVE,
+            color: randomColor
+          };
+        }
+      }
+      this.gameOver = false;
+      this.draw();
     }
   }
+  const game = new Arkanoid("canvas", "restart");
+  game.init();
 </script>
 
 </html>

@@ -9,3 +9,25 @@ canvas {
   margin: 0 auto;
   display: block;
 }
+
+.opciones {
+  text-align: center;
+  margin: 20px auto;
+}
+
+button {
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color .1s ease-in-out;
+}
+
+button.restart {
+  background-color: #fff;
+  color: #111;
+}
+
+button.restart:hover {
+  background-color: #ddd;
+}
