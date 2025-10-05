@@ -15,6 +15,60 @@
   </div>
 </body>
 <script>
+  class Ball {
+    constructor(canvas) {
+      this.canvas = canvas; // lienzo donde se dibujará el ball
+      this.ctx = this.canvas.getContext('2d'); // contexto del lienzo
+      this.ballRadius = 3; // tamaño del ball
+      this.x; // posicion del ball
+      this.y; // posicion del ball
+      this.dx; // velocidad del ball
+      this.dy; // velocidad del ball
+      this.initBall();
+    }
+    // Iniciamos la ball
+    initBall() {
+      this.x = this.canvas.width / 2; // posicion del ball
+      this.y = this.canvas.height - 30; // posicion del ball
+      this.dx = 2; // velocidad del ball
+      this.dy = -2; // velocidad del ball
+    }
+    // Dibujamos el ball
+    drawBall() {
+      // Dibujamos el ball
+      this.ctx.beginPath();
+      this.ctx.arc(this.x, this.y, this.ballRadius, 0, Math.PI * 2); // posición x, posicón y, radio, comienzo, fin
+      this.ctx.fillStyle = '#fff';
+      this.ctx.fill();
+      this.ctx.closePath();
+    }
+    // Movemos el ball
+    mueveBall() {
+      this.x += this.dx;
+      this.y += this.dy;
+    }
+    // Verificamos si rebota en pared derecha
+    checkRightWall() {
+      return ((this.x + this.dx) > this.canvas.width - this.ballRadius);
+    }
+    // Verificiamos si rebota en pared izquierda
+    checkLeftWall() {
+      return ((this.x + this.dx) < this.ballRadius);
+    }
+    // Veredicamos si rebota arriba
+    checkUpWall() {
+      return ((this.y + this.dy) < this.ballRadius);
+    }
+    // Verificamos si rebota en alguna pared
+    rebotaParedes() {
+      if (this.checkRightWall() || this.checkLeftWall()) this.dx = -this.dx;
+      if (this.checkUpWall()) this.dy = -this.dy;
+    }
+    // Verificamos si la pelota se ha perdido
+    gameOver() {
+      return (this.y + this.dy > this.canvas.height - this.ballRadius);
+    }
+  }
   class Arkanoid {
     // constructor de la clase
     constructor(
@@ -34,11 +88,7 @@
       // Variables del juego
       this.gameOver = false;
       // Variables de la pelota
-      this.ballRadius = 3; // tamaño del ball
-      this.x = this.canvas.width / 2; // posicion del ball
-      this.y = this.canvas.height - 30; // posicion del ball
-      this.dx = 2; // velocidad del ball
-      this.dy = -2; // velocidad del ball
+      this.ball = new Ball(this.canvas);
       // Variables del paddle
       this.paddleWidth = 48; // ancho del paddle
       this.paddleHeight = 10; // alto del paddle
@@ -98,15 +148,6 @@
       this.bricks.hidden = true;
       this.bricks.id = 'bricks';
     }
-    // Dibujamos el ball
-    drawBall() {
-      // Dibujamos el ball
-      this.ctx.beginPath();
-      this.ctx.arc(this.x, this.y, this.ballRadius, 0, Math.PI * 2); // posición x, posicón y, radio, comienzo, fin
-      this.ctx.fillStyle = '#fff';
-      this.ctx.fill();
-      this.ctx.closePath();
-    }
     // Dibujamos el paddle
     drawPaddle() {
       // Dibujar una imagen
@@ -156,12 +197,12 @@
             continue;
           }
           // Si la pelota esta dentro del ladrillo
-          const isBallSameXAsBrick = (this.x + this.ballRadius) > curentBrick.x && (this.x - this.ballRadius) < curentBrick.x + this.brickWidth;
-          const isBallSameYAsBrick = (this.y + this.ballRadius) > curentBrick.y && (this.y - this.ballRadius) < curentBrick.y + this.brickHeight;
+          const isBallSameXAsBrick = (this.ball.x + this.ball.ballRadius) > curentBrick.x && (this.ball.x - this.ball.ballRadius) < curentBrick.x + this.brickWidth;
+          const isBallSameYAsBrick = (this.ball.y + this.ball.ballRadius) > curentBrick.y && (this.ball.y - this.ball.ballRadius) < curentBrick.y + this.brickHeight;
           if (
             isBallSameXAsBrick && isBallSameYAsBrick
           ) {
-            this.dy = -this.dy;
+            this.ball.dy = -this.ball.dy;
             curentBrick.status = this.BRICK_STATUS.DESTROYED;
             this.points += 100;
           }
@@ -170,33 +211,22 @@
     };
     // Movimiento del ball
     ballMovement() {
-      // Rebotar las pelotas en los laterales
-      if (
-        (this.x + this.dx) > this.canvas.width - this.ballRadius // la pared derecha
-        || (this.x + this.dx) < this.ballRadius // la pared derecha
-      ) {
-        this.dx = -this.dx;
-      }
-      // Rebotar las pelotas arriba
-      if (
-        (this.y + this.dy) < this.ballRadius // la pared arriba
-      ) {
-        this.dy = -this.dy;
-      }
+      // Rebotar las pelotas en los laterales o de arriba
+      this.ball.rebotaParedes();
+
       // Rebotar la pelota en el paddle
-      const isBallSameXAsPaddle = this.x > this.paddleX && this.x < this.paddleX + this.paddleWidth;
-      const isBallSameYAsPaddle = this.y + this.dy > this.paddleY && this.y + this.dy < this.paddleY + this.paddleHeight;
+      const isBallSameXAsPaddle = this.ball.x > this.paddleX && this.ball.x < this.paddleX + this.paddleWidth;
+      const isBallSameYAsPaddle = this.ball.y + this.ball.dy > this.paddleY && this.ball.y + this.ball.dy < this.paddleY + this.paddleHeight;
       if (
         isBallSameXAsPaddle // la pared abajo
         && isBallSameYAsPaddle
       ) {
-        this.dy = -this.dy;
-      } else if (this.y + this.dy > this.canvas.height - this.ballRadius) {
+        this.ball.dy = -this.ball.dy;
+      } else if (this.ball.gameOver()) {
         // Game over
         this.gameOverHandler();
       }
-      this.x += this.dx;
-      this.y += this.dy;
+      this.ball.mueveBall();
     };
     // Movimiento del paddle
     paddleMovement() {
@@ -242,7 +272,7 @@
       // Limpiamos el canvas antes de volver a dibujar
       this.cleanCanvas();
       // Dibujamos los elementos
-      this.drawBall();
+      this.ball.drawBall();
       this.drawPaddle();
       this.drawBricks();
       // colisiones y movimientos
@@ -273,10 +303,7 @@
     // restart the game
     reinicioJuego() {
       this.points = 0;
-      this.x = this.canvas.width / 2; // posicion del ball
-      this.y = this.canvas.height - 30; // posicion del ball      
-      this.dx = 2; // velocidad del ball
-      this.dy = -2; // velocidad del ball
+      this.ball.initBall();
       this.paddleX = (this.canvas.width - this.paddleWidth) / 2; // posicion del paddle
       this.paddleY = this.canvas.height - this.paddleHeight - 10; // posicion del paddle
       // inicializamos

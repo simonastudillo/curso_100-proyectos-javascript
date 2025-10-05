@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moto Scroll</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    main {
+      height: 300dvh;
+    }
+
+    header {
+      background: linear-gradient(40deg, #ba3816, #a41705 40%);
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+      margin-top: -230px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      animation: slideInDown 1500ms ease-out;
+
+      img {
+        width: 130px;
+        margin: 0 auto;
+        height: auto;
+        margin-bottom: 30px;
+      }
+    }
+
+    main>div {
+      width: 100vw;
+      height: 100dvh;
+      object-fit: cover;
+      background-size: cover;
+      background-position: center;
+      background-image: url(/frames/0.webp);
+      position: fixed;
+      top: 0;
+      transition: background-image .3s ease-out;
+    }
+
+    @keyframes slideInDown {
+      from {
+        transform: translate3d(-50%, -100%, 0);
+        opacity: 0;
+      }
+
+      to {
+        transform: translate3d(-50%, 0, 0);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <img src="/logo.png" alt="Ichiban - Your way to freedom">
+    </header>
+    <div id="img-moto"></div>
+  </main>
+  <script type="module">
+    // Altura maxima del scroll
+    let maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    const div = document.querySelector('#img-moto');
+    const MAXFRAMES = 151;
+    preloadImages();
+
+    let currentFrame = 0;
+    // Evento de resize
+    window.addEventListener('resize', () => {
+      // Actualizar la altura maxima del scroll
+      maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    });
+    let lastFrameUpdate = 0;
+    // Evento de scroll
+    window.addEventListener('scroll', () => {
+      if (Date.now() - lastFrameUpdate < 1) {
+        return;
+      }
+      lastFrameUpdate = Date.now();
+      // Posicion actual del scroll
+      const currentScroll = window.scrollY;
+      // Calcular el porcentaje del scroll
+      const scrollPercent = (currentScroll / maxScroll);
+      // Que frame se debe mostrar
+      const frame = (Math.floor(scrollPercent * MAXFRAMES) || 1).toString().padStart(3, '0');
+      if (currentFrame !== frame) {
+        currentFrame = frame;
+        // Cambiar la imagen
+        div.style.backgroundImage = `url(/frames/moto-${frame}.webp)`;
+      }
+    });
+
+    function preloadImages() {
+      Array.from({ length: MAXFRAMES }, (_, index) => {
+        const img = new Image();
+        img.src = `/frames/moto-${(index + 1).toString().padStart(3, '0')}.webp`;
+      });
+    }
+  </script>
+</body>
+
+</html>
